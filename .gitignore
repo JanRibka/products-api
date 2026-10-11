@@ -1,0 +1,10 @@
+# Misc
+.env
+.env.development
+.env.test
+.env.production
+
+# Compose variable-substitution overrides (host ports). Optional, local-only,
+# NOT committed. docker/.env.example is the template.
+docker/.env
+

@@ -1,0 +1,12 @@
+.git
+.gitignore
+README.md
+.idea/
+.vscode/
+src/api/vendor/
+src/api/.env
+src/api/.env.*
+src/api/storage/logs/
+src/api/storage/cache/*
+!src/api/storage/cache/.gitignore
+src/api/.phpunit.result.cache

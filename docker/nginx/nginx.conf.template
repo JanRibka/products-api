@@ -1,0 +1,65 @@
+# Nginx config template.
+#
+# This file is mounted into the official nginx image as
+# /etc/nginx/templates/default.conf.template. The image's entrypoint
+# (docker-entrypoint.d/20-envsubst-on-templates.sh) renders it through
+# envsubst into /etc/nginx/conf.d/default.conf before nginx starts.
+#
+# Only DEFINED environment variables are substituted, so nginx runtime
+# variables below ($host, $request_uri, $uri, $is_args, $document_root,
+# $fastcgi_script_name, $fastcgi_path_info) are left untouched. The only
+# substituted value is ${API_HTTPS_PORT}, passed by docker-compose (default
+# 3444), so the HTTP->HTTPS redirect keeps the host-side HTTPS port even when
+# it is not the default 443.
+server {
+    listen 80;
+    server_name localhost;
+    # Redirect HTTP to HTTPS on the same host but the published HTTPS port.
+    # Without the explicit port the browser would be sent to :443, while HTTPS
+    # is published on API_HTTPS_PORT (default 3444).
+    return 301 https://$host:${API_HTTPS_PORT}$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name localhost;
+
+    ssl_certificate /etc/nginx/certificates/server.crt;
+    ssl_certificate_key /etc/nginx/certificates/server.key;
+
+    index index.php;
+    error_log /var/log/nginx/error.log;
+    access_log /var/log/nginx/access.log;
+    error_page 404 /404.html;
+    root /var/www/html;
+
+    location /api/ {
+        # CORS is handled entirely by the application (CorsMiddleware +
+        # ALLOWED_ORIGINS allowlist). nginx must NOT add or reflect CORS
+        # headers here, otherwise the request Origin header would be echoed
+        # unconditionally and bypass the allowlist.
+        try_files $uri /api/index.php$is_args$args;
+
+        location ~ \.php$ {
+            fastcgi_pass app:9000;
+            fastcgi_index index.php;
+            include fastcgi_params;
+            fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+            fastcgi_param PATH_INFO $fastcgi_path_info;
+        }
+    }
+
+    location ~ \.php$ {
+        try_files $uri =404;
+        fastcgi_split_path_info ^(.+\.php)(/.+)$;
+        fastcgi_pass app:9000;
+        fastcgi_index index.php;
+        include fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+        fastcgi_param PATH_INFO $fastcgi_path_info;
+    }
+
+    location ~ /\.ht {
+        deny all;
+    }
+}

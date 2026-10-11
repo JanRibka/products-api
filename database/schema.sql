@@ -1,0 +1,54 @@
+-- Products API - database schema
+-- MySQL 8.0 / MariaDB compatible (utf8mb4)
+
+SET NAMES utf8mb4;
+SET FOREIGN_KEY_CHECKS = 0;
+
+DROP TABLE IF EXISTS `product`;
+DROP TABLE IF EXISTS `material`;
+DROP TABLE IF EXISTS `brand`;
+
+CREATE TABLE `brand` (
+  `id` INT AUTO_INCREMENT NOT NULL,
+  `name` VARCHAR(100) NOT NULL,
+  UNIQUE INDEX `UNIQ_1C52F9585E237E06` (`name`),
+  PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE `utf8mb4_unicode_ci` ENGINE = InnoDB;
+
+CREATE TABLE `material` (
+  `id` INT AUTO_INCREMENT NOT NULL,
+  `name` VARCHAR(100) NOT NULL,
+  UNIQUE INDEX `UNIQ_16F4A9A65E237E06` (`name`),
+  PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE `utf8mb4_unicode_ci` ENGINE = InnoDB;
+
+CREATE TABLE `product` (
+  `id` INT AUTO_INCREMENT NOT NULL,
+  `code` VARCHAR(20) NOT NULL,
+  `name` VARCHAR(255) NOT NULL,
+  `description` LONGTEXT DEFAULT NULL,
+  `price` NUMERIC(10, 2) NOT NULL,
+  `brandId` INT NOT NULL,
+  `materialId` INT NOT NULL,
+  `createdAt` DATETIME NOT NULL COMMENT '(DC2Type:datetime_immutable)',
+  `updatedAt` DATETIME NOT NULL COMMENT '(DC2Type:datetime_immutable)',
+  UNIQUE INDEX `UNIQ_D34A04AD77153098` (`code`),
+  INDEX `IDX_D34A04AD9E2E8BA3` (`brandId`),
+  INDEX `IDX_D34A04ADE9764D19` (`materialId`),
+  PRIMARY KEY (`id`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE `utf8mb4_unicode_ci` ENGINE = InnoDB;
+
+ALTER TABLE `product`
+  ADD CONSTRAINT `FK_D34A04AD9E2E8BA3` FOREIGN KEY (`brandId`) REFERENCES `brand` (`id`) ON DELETE RESTRICT;
+ALTER TABLE `product`
+  ADD CONSTRAINT `FK_D34A04ADE9764D19` FOREIGN KEY (`materialId`) REFERENCES `material` (`id`) ON DELETE RESTRICT;
+
+-- Doctrine Migrations metadata table
+CREATE TABLE IF NOT EXISTS `Migrations` (
+  `Version` VARCHAR(512) NOT NULL,
+  `ExecutedAt` DATETIME NOT NULL,
+  `ExecutionTime` INT DEFAULT NULL,
+  PRIMARY KEY (`Version`)
+) DEFAULT CHARACTER SET utf8mb4 COLLATE `utf8mb4_unicode_ci` ENGINE = InnoDB;
+
+SET FOREIGN_KEY_CHECKS = 1;

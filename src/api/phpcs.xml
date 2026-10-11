@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<ruleset name="Custom PSR-12 Standard">
+    <description>PSR-12 coding standard for Products API (2-space indentation)</description>
+
+    <arg value="p"/>
+    <arg name="colors"/>
+    <arg value="s"/>
+
+    <rule ref="PSR12"/>
+
+    <!--
+      PSR-12 mandates 4-space indentation, but this project uses 2 spaces
+      (see .php-cs-fixer.dist.php -> setIndent('  ')). We re-configure the
+      indentation sniffs to expect 2 spaces so phpcs and php-cs-fixer agree.
+    -->
+    <rule ref="Generic.WhiteSpace.ScopeIndent">
+        <properties>
+            <property name="indent" value="2"/>
+            <property name="tabIndent" value="false"/>
+        </properties>
+    </rule>
+    <rule ref="Generic.WhiteSpace.DisallowTabIndent"/>
+    <rule ref="PSR2.Methods.FunctionCallSignature">
+        <properties>
+            <property name="indent" value="2"/>
+        </properties>
+    </rule>
+    <rule ref="Squiz.Functions.MultiLineFunctionDeclaration">
+        <properties>
+            <property name="indent" value="2"/>
+        </properties>
+    </rule>
+
+    <file>app</file>
+    <file>configs</file>
+    <file>constants</file>
+    <file>test</file>
+
+    <exclude-pattern>*/vendor/*</exclude-pattern>
+</ruleset>

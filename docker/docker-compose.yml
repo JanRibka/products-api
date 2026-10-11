@@ -1,0 +1,130 @@
+# =============================================================================
+# Host ports are configurable through variables with defaults, so the stack
+# works out of the box without any extra file. To override on your machine,
+# create docker/.env (optional, local-only, NOT committed) containing e.g.:
+#
+#   API_HTTP_PORT=3011
+#   API_HTTPS_PORT=3444
+#   MYSQL_PORT=3308
+#   PHPMYADMIN_PORT=3016
+#
+# NOTE: docker/.env (Compose variable substitution) is a DIFFERENT file from
+# src/api/.env (application configuration loaded by the PHP app at runtime).
+# =============================================================================
+
+name: products
+
+services:
+  app:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    container_name: products-api-app
+    restart: always
+    working_dir: /var/www/html/api/
+    volumes:
+      - ../src:/var/www/html
+      - ./local.ini:/usr/local/etc/php/conf.d/local.ini
+      - ./xdebug.ini:/usr/local/etc/php/conf.d/xdebug.ini
+      - ./nginx/nginx.conf.template:/var/www/docker/nginx/nginx.conf.template:ro
+      - ../database:/var/www/database
+    # Test DB connection used by the integration suite. Inside the Docker
+    # network the database is reached by service name + container port; the
+    # host-side mapped port (MYSQL_PORT) is never used here.
+    environment:
+      TEST_DB_HOST: db
+      TEST_DB_PORT: 3306
+      TEST_DB_NAME: products-api-test
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - products-network
+    depends_on:
+      db:
+        condition: service_healthy
+  nginx:
+    image: nginx:latest
+    container_name: products-api-nginx
+    restart: always
+    ports:
+      - "${API_HTTP_PORT:-3011}:80"
+      - "${API_HTTPS_PORT:-3444}:443"
+    # API_HTTPS_PORT is exposed to the container so the config template can
+    # build the HTTP->HTTPS redirect with the correct host-side port. It must
+    # default to the same value as the port mapping above.
+    environment:
+      API_HTTPS_PORT: ${API_HTTPS_PORT:-3444}
+    volumes:
+      - ../src:/var/www/html
+      # Mounted as a template: the official nginx image entrypoint runs
+      # envsubst on files in /etc/nginx/templates and writes the result to
+      # /etc/nginx/conf.d/<name>.conf before starting nginx. Only defined
+      # environment variables are substituted, so nginx variables such as
+      # $host, $request_uri, $uri and $document_root stay untouched.
+      - ./nginx/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./certificates:/etc/nginx/certificates:ro
+    depends_on:
+      app:
+        condition: service_started
+    networks:
+      - products-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  db:
+    image: mysql:8.0
+    container_name: products-api-mysql
+    restart: always
+    ports:
+      - "${MYSQL_PORT:-3308}:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: products-api
+      MYSQL_USER: productsuser
+      MYSQL_PASSWORD: productspassword
+    volumes:
+      - db_data:/var/lib/mysql
+      # Init script: creates the test database and grants the app user access.
+      # Only runs on an EMPTY volume - to reset, remove the volume with
+      # "docker compose down -v" and start again.
+      - ./mysql/initdb/01-test-database.sql:/docker-entrypoint-initdb.d/01-test-database.sql:ro
+    networks:
+      - products-network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-u",
+          "root",
+          "-prootpassword",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: products-api-phpmyadmin
+    restart: always
+    ports:
+      - "${PHPMYADMIN_PORT:-3016}:80"
+    environment:
+      PMA_HOST: db
+      MYSQL_ROOT_PASSWORD: rootpassword
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - products-network
+
+networks:
+  products-network:
+    driver: bridge
+
+volumes:
+  db_data:
